@@ -1,0 +1,10 @@
+#!/bin/sh
+
+# Git repository to pull updates from
+dotfiles_repo=""
+
+# Optionally set this to choose a remote branch and override native platform finding
+dotfiles_branch=""
+
+# Location where dotfiles repository should live locally
+dotfiles_loc="$HOME/dotfiles"

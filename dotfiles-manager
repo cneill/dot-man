@@ -1,0 +1,251 @@
+#!/bin/sh
+################################################################################
+# Dotfiles Manager
+#
+# Copyright (c) 2015, Charles Neill
+# https://github.com/cneill // https://twitter.com/ccneill
+# All rights reserved.
+# 
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#   1. Redistributions of source code must retain the above copyright notice,
+#      this list of conditions and the following disclaimer.
+#   2. Redistributions in binary form must reproduce the above copyright notice,
+#      this list of conditions and the following disclaimer in the documentation
+#      and/or other materials provided with the distribution.
+# 
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+################################################################################
+
+config_file=$HOME/.dotfiles
+editor=${EDITOR:-vi}
+home=$HOME
+sep="=========================================================================="
+
+# Load our configuration file
+function load_config {
+    clean=`grep -vE '(^[# a-zA-Z]$)|(^[a-z]+=[a-z" ]$)' $config_file`
+    if [[ ! -z $clean ]]; then
+        echo "Warning: your configuration file may have unsafe lines in it. What would you like to do?\n[c]ontinue, [o]pen, or [Q]uit:"
+        read continue_reading
+        if [[ $continue_reading == "C" ]] || [[ $continue_reading == "c" ]]; then
+            . $config_file
+        elif [[ $continue_reading == "o" ]] || [[ $continue_reading == "O" ]]; then
+            $editor $config_file
+            echo "Continue loading configuration file? [y/N]"
+            read continue_loading
+            if [[ $continue_loading == "y" ]] || [[ $continue_loading == "Y" ]]; then
+                . $config_file
+            else
+                echo "Unable to load configuration. Quitting."
+                exit -1
+            fi
+        else
+            echo "Quitting."
+            exit -1
+        fi
+    fi
+}
+
+# check to make sure we have the right platform
+function check_platform {
+    platform="unknown"
+    if [[ -z $dotfiles_branch ]]; then
+        dotfiles_branch="master"
+        unamestr=`uname`
+        if [[ $unamestr == "Linux" ]]; then
+            platform="Linux"
+            dotfiles_branch="linux"
+        elif [[ $unamestr == "Darwin" ]]; then
+            platform="OS X"
+            dotfiles_branch="osx"
+        fi
+
+        if [[ $platform != "unknown" ]]; then
+            echo "It looks like your platform is $platform. Is this correct? [y/N]"
+            read correct_platform
+            if [[ $correct_platform != "y" ]] && [[ $correct_platform != "Y" ]]; then
+                echo "Unknown platform. Quitting."
+                exit -1
+            fi
+        else
+            echo "Unknown platform. Quitting."
+            exit -1
+        fi
+
+    else
+        echo "Using branch $dotfiles_branch (defined in $config_file)."
+    fi
+}
+
+# check to see if our dotfiles folder exists
+function check_dotfiles_exist {
+    echo "Checking dotfiles exist...\n"
+    git_status=`git -C $dotfiles_loc status`
+    not_directory=`grep 'No such file or directory' << $git_status`
+    not_repository=`grep 'Not a git repository' << $git_status`
+
+    if [[ ! -z $not_directory ]]; then
+        echo "Dotfiles repository not found at specified location. Clone repo to $dotfiles_loc? [y/N]"
+        read clone_repo
+        if [[ $clone_repo == "y" ]] || [[ $clone_repo == "Y" ]]; then
+            mkdir $dotfiles_loc
+            git -C $dotfiles_loc clone $dotfiles_repo .
+        fi
+        git -C $dotfiles_loc checkout $dotfiles_branch
+    elif [[ ! -z $not_repository ]]; then
+        echo "Git repository not found at this location. Initialize one or clone?\n[i]nitialize, [c]lone, or [Q]uit: "
+        read initialize_git
+
+        if [[ $initialize_git == "i" ]] || [[ $initialize_git == "I" ]]; then
+            git -C $dotfiles_loc init
+        elif [[ $initialize_git == "c" ]] || [[ $initialize_git == "C" ]]; then
+            is_dirty=`ls $dotfiles_loc`
+            if [[ ! -z $is_dirty ]]; then
+                echo "Existing files in $dotfiles_loc:\n$is_dirty\n\nDelete files? [y/N]" 
+                read delete_existing
+                if [[ $delete_existing == "y" ]] || [[ $delete_existing == "Y" ]]; then
+                    rm -rf $dotfiles_loc
+                    mkdir $dotfiles_loc
+                else
+                    if [[ $initialize_git == "c" ]] || [[ $initialize_git == "C" ]]; then
+                        echo "Cannot clone repository without deleting files in $dotfiles_loc. Clean up this directory and try again."
+                        exit -1
+                    fi
+                fi
+            fi
+            git clone $dotfiles_repo $dotfiles_loc
+        else
+            echo "Quitting."
+            exit -1
+        fi
+    else
+        echo "Found dotfiles repository"
+    fi
+}
+
+# update dotfiles repository from remote
+function update_dotfiles {
+    echo "Checking status of repository...\n"
+    current_branch=`git -C $dotfiles_loc status | grep "On branch " | sed "s/On branch //"`
+    if [[ $current_branch != $dotfiles_branch ]]; then
+        git -C $dotfiles_loc checkout $dotfiles_branch
+        git -C $dotfiles_loc branch -u "origin/$dotfiles_branch"
+    fi
+    git -C $dotfiles_loc remote update
+    status=`git -C $dotfiles_loc status`
+    up_to_date=`grep "Your branch is up-to-date" <<< $status` 
+    up_to_date2=`grep -E "nothing (added )*to commit" <<< $status` # Dirty branch is thrown away here. Maybe we want to update?
+    
+    if [[ $up_to_date ]] || [[ $up_to_date2 ]]; then
+        echo "Local repository is up-to-date with remote repository."
+    else
+        echo "The dotfiles repository has been updated, or has unstaged changes. Pull latest version? [y/N]"
+        read pull_latest
+        if [[ $pull_latest == "y" ]] || [[ $pull_latest == "Y" ]]; then
+            git -C $dotfiles_loc pull -u origin $dotfiles_branch
+        else
+            echo "Not updating repository from remote."
+        fi
+    fi
+}
+
+# diff directories and copy any updates
+function compare_dotfiles {
+    echo "Comparing files from $dotfiles_loc with files in $home.\n"
+    for file in `git -C $dotfiles_loc ls-files`; do
+        if [[ $file != "$dotfiles_loc/." ]] && [[ $file != "$dotfiles_loc/.." ]] && [[ $file != ".git" ]] && [[ $file != ".gitignore" ]]; then
+            if [[ $dotfiles_loc/$file -nt $home/$file ]]; then
+                if [[ ! -f $home/$file ]]; then
+                    echo "File $file doesn't exist in $home. Copy from repo? [y/N]"
+                    read copy_straight
+                    if [[ $copy_straight == "y" ]] || [[ $copy_straight == "Y" ]]; then
+                        cp $dotfiles_loc/$file $home/$file
+                    fi
+                else 
+                    difference=`diff $dotfiles_loc/$file $home/$file`
+                    if [[ ! -z $difference ]]; then
+                        echo "Dotfiles repository has newer version of $file. Open sdiff? (Selecting no will not copy any changes) [y/N]"
+                        read open_sdiff
+                        if [[ $open_sdiff == "y" ]] || [[ $open_sdiff == "Y" ]]; then
+                            outfile=`mktemp TEMP_DOTFILE.XXXXXXXXXX`
+                            sdiff -o $outfile $dotfiles_loc/$file $home/$file
+                            cp $outfile $home/$file
+                            rm $outfile 
+                        fi
+                    else
+                        echo "$file is up-to-date!"
+                    fi
+                fi
+            elif [[ $home/$file -nt $dotfiles_loc/$file ]]; then
+                difference=`diff $home/$file $dotfiles_loc/$file`
+                if [[ ! -z $difference ]]; then
+                    echo "Differences found. Open sdiff? (Selecting no will not copy any changes) [y/N]"
+                    read open_sdiff
+                    if [[ $open_sdiff == "y" ]] || [[ $open_sdiff == "Y" ]]; then
+                        outfile=`mktemp TEMP_DOTFILE.XXXXXXXXXX`
+                        sdiff -o $outfile $home/$file $dotfiles_loc/$file
+                        home_difference=`diff $outfile $home/$file`
+                        repo_difference=`diff $outfile $dotfiles_loc/$file`
+                        if [[ ! -z $home_difference ]]; then
+                            echo "Copy to $home? [y/N]"
+                            read copy_home 
+                            if [[ $copy_home == "y" ]] || [[ $copy_home == "Y" ]]; then
+                                cp $outfile $home/$file
+                            fi
+                        fi
+                        if [[ ! -z $repo_difference ]]; then
+                            echo "Copy to $dotfiles_loc [y/N]?"
+                            read copy_dotfiles
+                            if [[ $copy_dotfiles == "y" ]] || [[ $copy_dotfiles == "Y" ]]; then
+                                cp $outfile $dotfiles_loc/$file
+                                echo "Update dotfiles repository? [y/N]"
+                                read update_dotfiles
+                                if [[ $update_dotfiles == "y" ]] || [[ $update_dotfiles == "Y" ]]; then
+                                    git -C $dotfiles_loc add $dotfiles_loc/$file
+                                    commit_message="Update dotfiles on `hostname` at `date`."
+                                    echo "Custom commit message? [y/N]"
+                                    read custom_commit
+                                    if [[ $custom_commit == "y" ]] || [[ $custom_commit == "Y" ]]; then
+                                        echo "Enter commit message: "
+                                        read custom_commit_message
+                                        commit_message=$custom_commit_message
+                                    fi
+                                    git -C $dotfiles_loc commit -m "$commit_message"
+                                    git -C $dotfiles_loc push -u $dotfiles_repo
+                                    echo "Pushed updates to $dotfiles_repo!"
+                                fi
+                            fi
+                        fi
+                        rm $outfile 
+                    else
+                        echo "Leaving differences in $file unchanged."
+                    fi
+                else
+                    echo "$file is up-to-date!"
+                fi
+            fi
+        fi
+    done
+}
+
+load_config
+echo $sep
+check_platform
+echo $sep
+check_dotfiles_exist
+echo $sep
+update_dotfiles
+echo $sep
+compare_dotfiles
+echo
+echo "Done!"
