@@ -17,10 +17,13 @@ If you don't want to clone this to your `$HOME` directory, make sure to copy the
 This simple bash script will help you save your dotfiles to a git repository
 so you can keep them up to date across machines.
 
-Simply run this script when:
+To track new dotfiles, simply add them to the dotfiles folder and/or repo.
+
+Run this script when:
 
     1. You update your local dotfiles (e.g. in your `$HOME` directory)
     2. You update your remote dotfiles repository on another machine
+    3. You spawn a new bash/zsh shell
 
 By default it is designed to be non-destructive (e.g. if you simply hit "ENTER",
 it will not make changes to your filesystem / repository).
@@ -33,12 +36,14 @@ used to execute malicious scripts. You can manually verify the configuration
 file and safely load it if you trust it. You can skip this check by passing
 the `-f` argument.
 
-If you want to periodically call dot-man, you can call it with the
-`-check_last_run` argument. If dot-man has run more recently than the next
-interval (specified by `$dotfiles_update_interval` in .dotfiles), it will
+### Running dot-man on new shell (e.g. in .bash\_profile / .zshrc
+If you want to call dot-man when you start a new shell, you can call it with the
+`-check_last_run` argument. If dot-man has run more recently than specified by
+the interval (`$dotfiles_update_interval` in .dotfiles), it will
 exit quietly.
 
-To add dotfiles to track, simply add them to the dotfiles folder and/or repo.
+
+### Variables
 
 #### dotfiles\_repo
 
