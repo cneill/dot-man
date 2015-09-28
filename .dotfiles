@@ -8,3 +8,9 @@ dotfiles_branch=""
 
 # Location where dotfiles repository should live locally
 dotfiles_loc="$HOME/dotfiles"
+
+# File to save the last run time in
+dotfiles_last_run_file="$HOME/.dotfiles-last-run"
+
+# Update interval in seconds (default = 24 hours)
+dotfiles_update_interval=86400
