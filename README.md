@@ -38,6 +38,8 @@ If you want to periodically call dot-man, you can call it with the
 interval (specified by `$dotfiles_update_interval` in .dotfiles), it will
 exit quietly.
 
+To add dotfiles to track, simply add them to the dotfiles folder and/or repo.
+
 #### dotfiles\_repo
 
 This is the remote repository you want to save your dotfiles in.
