@@ -29,15 +29,32 @@
 config_file=$HOME/.dotfiles
 editor=${EDITOR:-vi}
 home=$HOME
+ARGS=("$@")
+CHECK_LAST_RUN=0
+LOAD_UNSAFE_CONFIG=0
 sep="=========================================================================="
+
+for arg in "$@"; do
+    case $arg in
+        -f)
+            LOAD_UNSAFE_CONFIG=1
+        ;;
+        -check_last_run)
+            CHECK_LAST_RUN=1
+        ;;
+    esac
+done
 
 # Load our configuration file
 function load_config {
+    if [[ ! -z LOAD_UNSAFE_CONFIG ]]; then
+        . $config_file
+    fi
     clean=`grep -vE '(^[# a-zA-Z]$)|(^[a-z]+=[a-z" ]$)' $config_file`
-    if [[ ! -z $clean ]]; then
+    if [[ ! -z $clean ]] && [[ -z LOAD_UNSAFE_CONFIG ]]; then
         echo "Warning: your configuration file may have unsafe lines in it. What would you like to do?\n[c]ontinue, [o]pen, or [Q]uit:"
         read continue_reading
-        if [[ $continue_reading == "C" ]] || [[ $continue_reading == "c" ]]; then
+        if [[ $continue_reading == "c" ]] || [[ $continue_reading == "C" ]]; then
             . $config_file
         elif [[ $continue_reading == "o" ]] || [[ $continue_reading == "O" ]]; then
             $editor $config_file
@@ -51,7 +68,38 @@ function load_config {
             fi
         else
             echo "Quitting."
-            exit -1
+            exit 0
+        fi
+    fi
+}
+
+# See when we last ran dot-man
+function check_last_run {
+    thedate=`date`
+    thetime=`date -j -f "%a %b %d %T %Z %Y" "$thedate" "+%s"`
+    raw=`cat $dotfiles_last_run_file`
+    last_time=`date -r $raw`
+    time_diff=`echo "$thetime - $raw" | bc`
+
+    if [[ $CHECK_LAST_RUN != 0 ]]; then
+        if [[ -f $dotfiles_last_run_file ]]; then
+            if [[ $time_diff < $dotfiles_update_interval ]]; then
+                exit 0
+            else
+                echo "$thetime" > $dotfiles_last_run_file
+            fi
+        else
+            touch $last_run_file
+            echo "$thetime" > $dotfiles_last_run_file
+        fi
+    else
+        echo "Last run: $last_time. Continue? [y/N]"
+        read continue_running
+        if [[ $continue_running != "y" ]] && [[ $continue_running != "Y" ]]; then
+            echo "Quitting."
+            exit 0
+        else
+            echo "$thetime" > $dotfiles_last_run_file
         fi
     fi
 }
@@ -189,7 +237,7 @@ function compare_dotfiles {
             elif [[ $home/$file -nt $dotfiles_loc/$file ]]; then
                 difference=`diff $home/$file $dotfiles_loc/$file`
                 if [[ ! -z $difference ]]; then
-                    echo "Differences found. Open sdiff? (Selecting no will not copy any changes) [y/N]"
+                    echo "Differences found in $home/$file. Open sdiff? (Selecting no will not copy any changes) [y/N]"
                     read open_sdiff
                     if [[ $open_sdiff == "y" ]] || [[ $open_sdiff == "Y" ]]; then
                         outfile=`mktemp TEMP_DOTFILE.XXXXXXXXXX`
@@ -239,6 +287,7 @@ function compare_dotfiles {
 }
 
 load_config
+check_last_run
 echo $sep
 check_platform
 echo $sep
