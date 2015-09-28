@@ -30,7 +30,13 @@ it will not make changes to your filesystem / repository).
 By default, the file `$HOME/.dotfiles` is used as a configuration file. You
 may get warnings about unsafe contents if there are characters that might be
 used to execute malicious scripts. You can manually verify the configuration
-file and safely load it if you trust it.
+file and safely load it if you trust it. You can skip this check by passing
+the `-f` argument.
+
+If you want to periodically call dot-man, you can call it with the
+`-check_last_run` argument. If dot-man has run more recently than the next
+interval (specified by `$dotfiles_update_interval` in .dotfiles), it will
+exit quietly.
 
 #### dotfiles\_repo
 
@@ -47,6 +53,17 @@ or "linux" as the branch name, depending on the platform detected.
 This is the local folder you want to store the dotfiles repository in. By
 default this is `$HOME/dotfiles`
 
+#### dotfiles\_last\_run\_file
+
+A file to save the current execution timestamp to. Defaults to
+`$HOME/.dotfiles-last-run`.
+
+#### dotfiles\_update\_interval
+
+Time, in seconds, to wait between calling dot-man. Useful when calling dot-man
+on startup in e.g. your .zshrc or .bash\_profile. Defaults to 24 hours.
+
 ## Copyright
 
-Copyright (c) 2015 Eric R. Jeschke. All rights reserved. Ginga is distributed under an open-source BSD licence. Please see the file LICENSE.txt in the top-level directory for details.
+Copyright (c) 2015 Charles Neill. All rights reserved. dot-man is distributed
+under an open-source BSD licence.
