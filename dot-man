@@ -34,24 +34,13 @@ CHECK_LAST_RUN=0
 LOAD_UNSAFE_CONFIG=0
 sep="=========================================================================="
 
-for arg in "$@"; do
-    case $arg in
-        -f)
-            LOAD_UNSAFE_CONFIG=1
-        ;;
-        -check_last_run)
-            CHECK_LAST_RUN=1
-        ;;
-    esac
-done
-
 # Load our configuration file
 function load_config {
-    if [[ ! -z LOAD_UNSAFE_CONFIG ]]; then
+    if [[ $LOAD_UNSAFE_CONFIG == 1 ]]; then
         . $config_file
     fi
     clean=`grep -vE '(^[# a-zA-Z]$)|(^[a-z]+=[a-z" ]$)' $config_file`
-    if [[ ! -z $clean ]] && [[ -z LOAD_UNSAFE_CONFIG ]]; then
+    if [[ ! -z $clean ]] && [[ $LOAD_UNSAFE_CONFIG == 0 ]]; then
         echo "Warning: your configuration file may have unsafe lines in it. What would you like to do?\n[c]ontinue, [o]pen, or [Q]uit:"
         read continue_reading
         if [[ $continue_reading == "c" ]] || [[ $continue_reading == "C" ]]; then
@@ -77,31 +66,32 @@ function load_config {
 function check_last_run {
     thedate=`date`
     thetime=`date -j -f "%a %b %d %T %Z %Y" "$thedate" "+%s"`
-    raw=`cat $dotfiles_last_run_file`
-    last_time=`date -r $raw`
-    time_diff=`echo "$thetime - $raw" | bc`
+    if [[ -f $dotfiles_last_run_file ]]; then
+        raw=`cat $dotfiles_last_run_file`
+        last_time=`date -r $raw`
+        time_diff=`echo "$thetime - $raw" | bc`
 
-    if [[ $CHECK_LAST_RUN != 0 ]]; then
-        if [[ -f $dotfiles_last_run_file ]]; then
+        if [[ $CHECK_LAST_RUN == 1 ]]; then
             if [[ $time_diff < $dotfiles_update_interval ]]; then
                 exit 0
             else
                 echo "$thetime" > $dotfiles_last_run_file
             fi
         else
-            touch $last_run_file
-            echo "$thetime" > $dotfiles_last_run_file
+            echo "Last run: $last_time. Continue? [y/N]"
+            read continue_running
+            if [[ $continue_running != "y" ]] && [[ $continue_running != "Y" ]]; then
+                echo "Quitting."
+                exit 0
+            else
+                echo "$thetime" > $dotfiles_last_run_file
+            fi
         fi
     else
-        echo "Last run: $last_time. Continue? [y/N]"
-        read continue_running
-        if [[ $continue_running != "y" ]] && [[ $continue_running != "Y" ]]; then
-            echo "Quitting."
-            exit 0
-        else
-            echo "$thetime" > $dotfiles_last_run_file
-        fi
+        touch $dotfiles_last_run_file
+        echo "$thetime" > $dotfiles_last_run_file
     fi
+
 }
 
 # check to make sure we have the right platform
@@ -285,6 +275,17 @@ function compare_dotfiles {
         fi
     done
 }
+
+for arg in "$@"; do
+    case $arg in
+        -f)
+            LOAD_UNSAFE_CONFIG=1
+        ;;
+        -check_last_run)
+            CHECK_LAST_RUN=1
+        ;;
+    esac
+done
 
 load_config
 check_last_run
