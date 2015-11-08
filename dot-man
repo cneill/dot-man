@@ -250,7 +250,7 @@ function compare_dotfiles {
                                 read update_dotfiles
                                 if [[ $update_dotfiles == "y" ]] || [[ $update_dotfiles == "Y" ]]; then
                                     git -C $dotfiles_loc add $dotfiles_loc/$file
-                                    commit_message="Update dotfiles on `hostname` at `date`."
+                                    commit_message="Updating $file on `hostname` at `date`."
                                     echo "Custom commit message? [y/N]"
                                     read custom_commit
                                     if [[ $custom_commit == "y" ]] || [[ $custom_commit == "Y" ]]; then
