@@ -69,10 +69,9 @@ function check_last_run {
     if [[ -f $dotfiles_last_run_file ]]; then
         raw=`cat $dotfiles_last_run_file`
         last_time=`date -r $raw`
-        time_diff=`echo "$thetime - $raw" | bc`
-
+        time_diff=`expr $thetime - $raw`
         if [[ $CHECK_LAST_RUN == 1 ]]; then
-            if [[ $time_diff < $dotfiles_update_interval ]]; then
+            if [[ $time_diff -lt $dotfiles_update_interval ]]; then
                 exit 0
             else
                 echo "$thetime" > $dotfiles_last_run_file
