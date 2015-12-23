@@ -42,6 +42,10 @@ If you want to call dot-man when you start a new shell, you can call it with the
 the interval (`$dotfiles_update_interval` in .dotfiles), it will
 exit quietly.
 
+### Skipping platform check confirmation
+If you don't want to be prompted on platform detection, specify the `-d` flag
+when calling dot-man.
+
 
 ### Variables
 
