@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 ################################################################################
 # dot-man
 #
@@ -25,13 +25,14 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ################################################################################
-
+platform="unknown"
 config_file=$HOME/.dotfiles
 editor=${EDITOR:-vi}
 home=$HOME
 ARGS=("$@")
 CHECK_LAST_RUN=0
 LOAD_UNSAFE_CONFIG=0
+LAZY_PLATFORM_DETECT=0
 sep="=========================================================================="
 
 # Load our configuration file
@@ -41,7 +42,7 @@ function load_config {
     fi
     clean=`grep -vE '(^[# a-zA-Z]$)|(^[a-z]+=[a-z" ]$)' $config_file`
     if [[ ! -z $clean ]] && [[ $LOAD_UNSAFE_CONFIG == 0 ]]; then
-        echo "Warning: your configuration file may have unsafe lines in it. What would you like to do?\n[c]ontinue, [o]pen, or [Q]uit:"
+        echo -e "Warning: your configuration file may have unsafe lines in it. What would you like to do?\n[c]ontinue, [o]pen, or [Q]uit:"
         read continue_reading
         if [[ $continue_reading == "c" ]] || [[ $continue_reading == "C" ]]; then
             . $config_file
@@ -65,10 +66,20 @@ function load_config {
 # See when we last ran dot-man
 function check_last_run {
     thedate=`date`
-    thetime=`date -j -f "%a %b %d %T %Z %Y" "$thedate" "+%s"`
+    thetime=""
+    pretty_last_time=""
+    if [[ $platform == "Linux" ]]; then
+        thetime=`date -d "$thedate" "+%s"`
+    elif [[ $platform == "OS X" ]]; then
+        thetime=`date -j -f "%a %b %d %T %Z %Y" "$thedate" "+%s"`
+    fi
     if [[ -f $dotfiles_last_run_file ]]; then
         raw=`cat $dotfiles_last_run_file`
-        last_time=`date -r $raw`
+        if [[ $platform == "Linux" ]]; then
+            last_time=`date -d "@$raw"`
+        elif [[ $platform == "OS X" ]]; then
+            last_time=`date -r $raw`
+        fi
         time_diff=`expr $thetime - $raw`
         if [[ $CHECK_LAST_RUN == 1 ]]; then
             if [[ $time_diff -lt $dotfiles_update_interval ]]; then
@@ -95,41 +106,47 @@ function check_last_run {
 
 # check to make sure we have the right platform
 function check_platform {
-    platform="unknown"
-    if [[ -z $dotfiles_branch ]]; then
-        dotfiles_branch="master"
-        unamestr=`uname`
-        if [[ $unamestr == "Linux" ]]; then
-            platform="Linux"
-            dotfiles_branch="linux"
-        elif [[ $unamestr == "Darwin" ]]; then
-            platform="OS X"
-            dotfiles_branch="osx"
+    unamestr=`uname`
+    
+    if [[ $unamestr == "Linux" ]]; then
+        platform="Linux"
+    elif [[ $unamestr == "Darwin" ]]; then
+        platform="OS X"
+    fi
+
+
+    if [[ $platform != "unknown" ]]; then
+        if [[ -z $dotfiles_branch ]]; then
+            if [[ $platform == "Linux" ]]; then
+                dotfiles_branch="linux"
+            elif [[ $platform == "OS X" ]]; then
+                dotfiles_branch="osx"
+            fi
+        else
+            echo "Using branch $dotfiles_branch (defined in $config_file)."
         fi
 
-        if [[ $platform != "unknown" ]]; then
+        if [[ $LAZY_PLATFORM_DETECT == 0 ]]; then
             echo "It looks like your platform is $platform. Is this correct? [y/N]"
             read correct_platform
             if [[ $correct_platform != "y" ]] && [[ $correct_platform != "Y" ]]; then
                 echo "Unknown platform. Quitting."
                 exit -1
             fi
-        else
-            echo "Unknown platform. Quitting."
-            exit -1
         fi
-
     else
-        echo "Using branch $dotfiles_branch (defined in $config_file)."
+        echo "Unknown platform. Quitting."
+        exit -1
     fi
+
 }
 
 # check to see if our dotfiles folder exists
 function check_dotfiles_exist {
-    echo "Checking dotfiles exist...\n"
+    echo -e "Checking dotfiles exist...\n"
     git_status=`git -C $dotfiles_loc status`
-    not_directory=`grep 'No such file or directory' << $git_status`
-    not_repository=`grep 'Not a git repository' << $git_status`
+    not_directory=`grep 'No such file or directory' <<< $git_status`
+    not_repository=`grep 'Not a git repository' <<< $git_status`
 
     if [[ ! -z $not_directory ]]; then
         echo "Dotfiles repository not found at specified location. Clone repo to $dotfiles_loc? [y/N]"
@@ -140,7 +157,7 @@ function check_dotfiles_exist {
         fi
         git -C $dotfiles_loc checkout $dotfiles_branch
     elif [[ ! -z $not_repository ]]; then
-        echo "Git repository not found at this location. Initialize one or clone?\n[i]nitialize, [c]lone, or [Q]uit: "
+        echo -e "Git repository not found at this location. Initialize one or clone?\n[i]nitialize, [c]lone, or [Q]uit: "
         read initialize_git
 
         if [[ $initialize_git == "i" ]] || [[ $initialize_git == "I" ]]; then
@@ -148,7 +165,7 @@ function check_dotfiles_exist {
         elif [[ $initialize_git == "c" ]] || [[ $initialize_git == "C" ]]; then
             is_dirty=`ls $dotfiles_loc`
             if [[ ! -z $is_dirty ]]; then
-                echo "Existing files in $dotfiles_loc:\n$is_dirty\n\nDelete files? [y/N]" 
+                echo -e "Existing files in $dotfiles_loc:\n$is_dirty\n\nDelete files? [y/N]" 
                 read delete_existing
                 if [[ $delete_existing == "y" ]] || [[ $delete_existing == "Y" ]]; then
                     rm -rf $dotfiles_loc
@@ -172,7 +189,7 @@ function check_dotfiles_exist {
 
 # update dotfiles repository from remote
 function update_dotfiles {
-    echo "Checking status of repository...\n"
+    echo -e "Checking status of repository...\n"
     current_branch=`git -C $dotfiles_loc status | grep "On branch " | sed "s/On branch //"`
     if [[ $current_branch != $dotfiles_branch ]]; then
         git -C $dotfiles_loc checkout $dotfiles_branch
@@ -198,7 +215,7 @@ function update_dotfiles {
 
 # diff directories and copy any updates
 function compare_dotfiles {
-    echo "Comparing files from $dotfiles_loc with files in $home.\n"
+    echo -e "Comparing files from $dotfiles_loc with files in $home.\n"
     for file in `git -C $dotfiles_loc ls-files`; do
         if [[ $file != "$dotfiles_loc/." ]] && [[ $file != "$dotfiles_loc/.." ]] && [[ $file != ".git" ]] && [[ $file != ".gitignore" ]]; then
             if [[ $dotfiles_loc/$file -nt $home/$file ]]; then
@@ -283,13 +300,15 @@ for arg in "$@"; do
         -check_last_run)
             CHECK_LAST_RUN=1
         ;;
+        -d)
+            LAZY_PLATFORM_DETECT=1
+        ;;
     esac
 done
 
 load_config
-check_last_run
-echo $sep
 check_platform
+check_last_run
 echo $sep
 check_dotfiles_exist
 echo $sep
