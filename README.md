@@ -96,10 +96,10 @@ A file to save the current execution timestamp to. Defaults to
 Time, in seconds, to wait between calling dot-man. Useful when calling dot-man
 on startup in e.g. your .zshrc or .bash\_profile. Defaults to 24 hours.
 
-#### home
+#### dotfiles\_home
 
 By default, dot-man uses `$HOME` as your home directory. If this isn't what you
-want, you'll need to modify this variable in `dot-man` itself.
+want, you'll need to change this in `.dotfiles`, as well as install commands, etc.
 
 ## Copyright
 
