@@ -1,5 +1,8 @@
 #!/bin/sh
 
+# Main location where dotfiles will live
+dotfiles_home="$HOME"
+
 # Git repository to pull updates from
 dotfiles_repo=""
 
@@ -7,7 +10,7 @@ dotfiles_repo=""
 dotfiles_branch=""
 
 # Location where dotfiles repository should live locally
-dotfiles_loc="$HOME/dotfiles"
+dotfiles_repo_loc="$HOME/dotfiles"
 
 # File to save the last run time in
 dotfiles_last_run_file="$HOME/.dotfiles-last-run"
