@@ -155,46 +155,59 @@ function check_platform {
 # check to see if our dotfiles folder exists
 function check_dotfiles_exist {
     echo -e "Checking dotfiles exist...\n"
-    git_status=`git -C $dotfiles_repo_loc status`
-    not_directory=`grep 'No such file or directory' <<< $git_status`
-    not_repository=`grep 'Not a git repository' <<< $git_status`
+    
 
-    if [[ ! -z $not_directory ]]; then
-        echo -e "Dotfiles repository not found at specified location.\n${b}Clone repo to $dotfiles_repo_loc?${b_} [y/${hi}N${hi_}]"
-        read -p "  > " clone_repo
-        if [[ $clone_repo == "y" ]] || [[ $clone_repo == "Y" ]]; then
-            mkdir $dotfiles_repo_loc
-            git -C $dotfiles_repo_loc clone $dotfiles_repo .
+    if [[ ! -d $dotfiles_repo_loc ]]; then
+        if [[ -e $dotfiles_repo_loc ]]; then
+            echo -e "${f}$dotfiles_repo_loc${f_} is not a directory.\nDelete and create directory? [y/${hi}N${hi_}]"
+            read -p " > " delete_file
+            if [[ $delete_file == "y" ]] || [[ $delete_file == "Y" ]]; then
+                rm -rf $dotfiles_repo_loc
+                mkdir $dotfiles_repo_loc
+            else
+                echo -e "Can't continue without a valid \$dotfiles_repo_loc."
+                exit -1
+            fi
+        else
+            echo -e "No folder named $dotfiles_repo_loc.\nCreate directory ${f}$dotfiles_repo_loc${f_}? [y/${hi}N${hi_}]"
+            read -p " > " create_directory
+            if [[ $create_directory == "y" ]] || [[ $create_directory == "Y" ]]; then
+                mkdir $dotfiles_repo_loc
+            else
+                echo -e "Can't continue without a valid \$dotfiles_repo_loc."
+                exit -1
+            fi
         fi
-        git -C $dotfiles_repo_loc checkout $dotfiles_branch
-    elif [[ ! -z $not_repository ]]; then
+    fi
+
+    if [[ ! -z $(git -C $dotfiles_repo_loc status 2>&1 | fgrep 'Not a git repository') ]]; then
         echo -e "Git repository not found at this location.\n${b}Initialize one or clone?${b_}\n[i]nitialize, [c]lone, or [${hi}Q${hi_}]uit: "
         read -p "  > " initialize_git
 
         if [[ $initialize_git == "i" ]] || [[ $initialize_git == "I" ]]; then
             git -C $dotfiles_repo_loc init
+            git -C $dotfiles_repo_loc checkout -b $dotfiles_branch
         elif [[ $initialize_git == "c" ]] || [[ $initialize_git == "C" ]]; then
             is_dirty=`ls $dotfiles_repo_loc`
             if [[ ! -z $is_dirty ]]; then
-                echo -e "Existing files in $dotfiles_repo_loc:\n$is_dirty\n\n${b}Delete files?${b_} [y/${hi}N${hi_}]" 
+                echo -e "Existing files in ${f}$dotfiles_repo_loc${f_}:\n$is_dirty\n\n${b}Delete files?${b_} [y/${hi}N${hi_}]" 
                 read -p "  > " delete_existing
                 if [[ $delete_existing == "y" ]] || [[ $delete_existing == "Y" ]]; then
                     rm -rf $dotfiles_repo_loc
                     mkdir $dotfiles_repo_loc
                 else
-                    if [[ $initialize_git == "c" ]] || [[ $initialize_git == "C" ]]; then
-                        echo "Cannot clone repository without deleting files in $dotfiles_repo_loc. Clean up this directory and try again."
-                        exit -1
-                    fi
+                    echo -e "Cannot clone repository without deleting files in ${f}$dotfiles_repo_loc${f_}. Clean up this directory and try again."
+                    exit -1
                 fi
             fi
             git clone $dotfiles_repo $dotfiles_repo_loc
+            git -C $dotfiles_repo_loc checkout -b $dotfiles_branch
         else
             echo "Quitting."
             exit -1
         fi
     else
-        echo "Found dotfiles repository"
+        echo "Found dotfiles repository."
     fi
 }
 
