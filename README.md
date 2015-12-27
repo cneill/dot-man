@@ -10,14 +10,13 @@ the files in your home directory or in the dotfiles repo will be tracked.
 
 ## Installation
 
-(These are the paths that dot-man uses by default. Modify and update the `.dotfiles`
-configuration file, and `dot-man` as needed.)
+These are the paths that dot-man uses by default. Modify and update the `.dotfiles`
+configuration file as needed. 
 
 ```bash
 git clone git@github.com:cneill/dot-man.git $HOME/dot-man
 cp $HOME/dot-man/.dotfiles $HOME  # COPY CONFIG TO $HOME DIRECTORY
 $EDITOR "$HOME/.dotfiles"         # USE YOUR FAVORITE TEXT EDITOR TO EDIT CONFIG FILE
-mkdir $HOME/dotfiles && git init -C "$HOME/dotfiles" # OPTIONAL, ONLY NEEDED IF REPO NOT INITIALIZED
 ```
 
 Make sure to copy the `.dotfiles` file to the $HOME directory before running
