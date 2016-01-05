@@ -37,14 +37,14 @@ LOAD_UNSAFE_CONFIG=0
 LAZY_PLATFORM_DETECT=0
 VERBOSE=0
 # Colors / formatting
-sep="\e[31m================================================================================\e[0m"
+sep="\033[31m================================================================================\033[0m"
 banner="$sep\ndot-man (•‿•)%67s\n$sep"
 b="\033[1m"
 b_="\033[0m"
-hi="${b}\e[92m"
-hi_="\e[0m${b_}"
-f="\e[4m\e[34m"
-f_="\e[0m\e[24m"
+hi="${b}\033[92m"
+hi_="\033[0m${b_}"
+f="\033[4m\033[34m"
+f_="\033[0m\033[24m"
 
 # Load our configuration file
 function load_config {
