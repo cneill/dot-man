@@ -35,6 +35,7 @@ CHECK_LAST_RUN=0
 LOAD_UNSAFE_CONFIG=0
 LAZY_PLATFORM_DETECT=0
 VERBOSE=0
+REVERSE_PROMPTS=0
 # Colors / formatting
 sep="\033[31m================================================================================\033[0m"
 b="\033[1m"
@@ -43,6 +44,35 @@ hi="${b}\033[92m"
 hi_="\033[0m${b_}"
 f="\033[4m\033[34m"
 f_="\033[0m\033[24m"
+
+# Return true if "yes", false if "no"
+function yn_prompt {
+    if [[ -z $1 ]]; then
+        echo "ERROR! BAD PROMPT"
+        exit 1
+    fi
+    question="${b}$1${b_}"
+    if [[ $REVERSE_PROMPTS == 0 ]]; then
+        answers="[y/${hi}N${hi_}]"
+    elif [[ $REVERSE_PROMPTS == 1 ]]; then
+        answers="[${hi}Y${hi_}/n]"
+    fi
+    echo -e "$question $answers"
+    read -p " > " y_n
+    if [[ $REVERSE_PROMPTS == 0 ]]; then
+        if [[ $y_n == "y" ]] || [[ $y_n == "Y" ]]; then
+            return 0
+        else
+            return 1
+        fi
+    elif [[ $REVERSE_PROMPTS == 1 ]]; then
+        if [[ $y_n == "n" ]] || [[ $y_n == "N" ]]; then
+            return 1
+        else
+            return 0
+        fi
+    fi
+}
 
 # Load our configuration file
 function load_config {
@@ -57,9 +87,7 @@ function load_config {
             . "$config_file"
         elif [[ $continue_reading == "o" ]] || [[ $continue_reading == "O" ]]; then
             $editor "$config_file"
-            echo -e "${b}Continue loading configuration file?${b_} [y/${hi}N${hi_}]"
-            read -p "  > " continue_loading
-            if [[ $continue_loading == "y" ]] || [[ $continue_loading == "Y" ]]; then
+            if yn_prompt "Continue loading configuration file?"; then
                 . "$config_file"
             else
                 echo "Unable to load configuration. Quitting."
@@ -96,13 +124,11 @@ thedate=$(date)
                 echo "$thetime" > "$dotfiles_last_run_file"
             fi
         else
-            echo -e "Last run: $last_time.\n${b}Continue?${b_} [y/${hi}N${hi_}]"
-            read -p "  > " continue_running
-            if [[ $continue_running != "y" ]] && [[ $continue_running != "Y" ]]; then
+            if yn_prompt "Last run: $last_time. Continue?"; then
+                echo "$thetime" > "$dotfiles_last_run_file"
+            else
                 echo "Quitting."
                 exit 0
-            else
-                echo "$thetime" > "$dotfiles_last_run_file"
             fi
         fi
     else
@@ -135,9 +161,7 @@ function check_platform {
         fi
 
         if [[ $LAZY_PLATFORM_DETECT == 0 ]]; then
-            echo -e "It looks like your platform is $platform.\n${b}Is this correct?${b_} [y/${hi}N${hi_}]"
-            read -p "  > " correct_platform
-            if [[ $correct_platform != "y" ]] && [[ $correct_platform != "Y" ]]; then
+            if ! yn_prompt "It looks like your platform is $platform. Is this correct?"; then
                 echo "Unknown platform. Quitting."
                 exit -1
             fi
@@ -156,9 +180,7 @@ function check_dotfiles_exist {
 
     if [[ ! -d $dotfiles_repo_loc ]]; then
         if [[ -e $dotfiles_repo_loc ]]; then
-            echo -e "${f}$dotfiles_repo_loc${f_} is not a directory.\nDelete and create directory? [y/${hi}N${hi_}]"
-            read -p " > " delete_file
-            if [[ $delete_file == "y" ]] || [[ $delete_file == "Y" ]]; then
+            if yn_prompt "${f}$dotfiles_repo_loc${f_} is not a directory. Delete and create directory?"; then
                 rm -rf "$dotfiles_repo_loc"
                 mkdir "$dotfiles_repo_loc"
             else
@@ -166,9 +188,7 @@ function check_dotfiles_exist {
                 exit -1
             fi
         else
-            echo -e "No folder named $dotfiles_repo_loc.\nCreate directory ${f}$dotfiles_repo_loc${f_}? [y/${hi}N${hi_}]"
-            read -p " > " create_directory
-            if [[ $create_directory == "y" ]] || [[ $create_directory == "Y" ]]; then
+            if yn_prompt "No folder named $dotfiles_repo_loc. Create directory ${f}$dotfiles_repo_loc${f_}?"; then
                 mkdir "$dotfiles_repo_loc"
             else
                 echo -e "Can't continue without a valid \$dotfiles_repo_loc."
@@ -187,13 +207,12 @@ function check_dotfiles_exist {
         elif [[ $initialize_git == "c" ]] || [[ $initialize_git == "C" ]]; then
             is_dirty=$(ls "$dotfiles_repo_loc")
             if [[ ! -z $is_dirty ]]; then
-                echo -e "Existing files in ${f}$dotfiles_repo_loc${f_}:\n$is_dirty\n\n${b}Delete files?${b_} [y/${hi}N${hi_}]" 
-                read -p "  > " delete_existing
-                if [[ $delete_existing == "y" ]] || [[ $delete_existing == "Y" ]]; then
+                echo -e "Existing files in ${f}$dotfiles_repo_loc${f_}:\n$is_dirty\n"
+                if yn_prompt "Delete files?"; then
                     rm -rf "$dotfiles_repo_loc"
                     mkdir "$dotfiles_repo_loc"
                 else
-                    echo -e "Cannot clone repository without deleting files in ${f}$dotfiles_repo_loc${f_}. Clean up this directory and try again."
+                    echo -e "Cannot clone repository without clean folder: ${f}$dotfiles_repo_loc${f_}. Clean up this directory and try again."
                     exit -1
                 fi
             fi
@@ -224,9 +243,7 @@ function update_dotfiles {
     if [[ $up_to_date ]] || [[ $up_to_date2 ]]; then
         echo "Local repository is up-to-date with remote repository."
     else
-        echo -e "The dotfiles repository has been updated, or has unstaged changes.\n${b}Pull latest version?${b_} [y/${hi}N${hi_}]"
-        read -p "  > " pull_latest
-        if [[ $pull_latest == "y" ]] || [[ $pull_latest == "Y" ]]; then
+        if yn_prompt "The dotfiles repository has been updated, or has unstaged changes. Pull latest version?"; then
             git -C "$dotfiles_repo_loc" pull -u origin "$dotfiles_branch"
         else
             echo "Not updating repository from remote."
@@ -241,17 +258,13 @@ function compare_dotfiles {
         if [[ $file != "$dotfiles_repo_loc/." ]] && [[ $file != "$dotfiles_repo_loc/.." ]] && [[ $file != ".git" ]] && [[ $file != ".gitignore" ]]; then
             if [[ $dotfiles_repo_loc/$file -nt $dotfiles_home/$file ]]; then
                 if [[ ! -f $dotfiles_home/$file ]]; then
-                    echo -e "File ${f}$file${f_} doesn't exist in ${f}$dotfiles_home${f_}.\n${b}Copy from repo?${b_} [y/${hi}N${hi_}]"
-                    read -p "  > " copy_straight
-                    if [[ $copy_straight == "y" ]] || [[ $copy_straight == "Y" ]]; then
+                    if yn_prompt "File ${f}$file${f_} doesn't exist in ${f}$dotfiles_home${f_}. Copy from repo?"; then
                         cp "$dotfiles_repo_loc/$file" "$dotfiles_home/$file"
                     fi
                 else 
                     difference=$(diff "$dotfiles_repo_loc/$file" "$dotfiles_home/$file")
                     if [[ ! -z $difference ]]; then
-                        echo -e "Dotfiles repository has newer version of ${f}$file${f_}.\n${b}Open sdiff?${b_} [y/${hi}N${hi_}]"
-                        read -p "  > " open_sdiff
-                        if [[ $open_sdiff == "y" ]] || [[ $open_sdiff == "Y" ]]; then
+                        if yn_prompt "Dotfiles repository has newer version of ${f}$file${f_}. Open sdiff?"; then
                             outfile=$(mktemp TEMP_DOTFILE.XXXXXXXXXX)
                             sdiff -o "$outfile" "$dotfiles_repo_loc/$file" "$dotfiles_home/$file"
                             cp "$outfile" "$dotfiles_home/$file"
@@ -264,33 +277,23 @@ function compare_dotfiles {
             elif [[ $dotfiles_home/$file -nt $dotfiles_repo_loc/$file ]]; then
                 difference=$(diff "$dotfiles_home/$file" "$dotfiles_repo_loc/$file")
                 if [[ ! -z $difference ]]; then
-                    echo -e "$sep\nDifferences found in ${f}$dotfiles_home/$file${f_}.\n${b}Open sdiff?${b_} [y/${hi}N${hi_}]"
-                    read -p "  > " open_sdiff
-                    if [[ $open_sdiff == "y" ]] || [[ $open_sdiff == "Y" ]]; then
+                    if yn_prompt "$sep\nDifferences found in ${f}$dotfiles_home/$file${f_}. Open sdiff?"; then
                         outfile=$(mktemp TEMP_DOTFILE.XXXXXXXXXX)
                         sdiff -o "$outfile" "$dotfiles_home/$file" "$dotfiles_repo_loc/$file"
                         home_difference=$(diff "$outfile" "$dotfiles_home/$file")
                         repo_difference=$(diff "$outfile" "$dotfiles_repo_loc/$file")
                         if [[ ! -z $home_difference ]]; then
-                            echo -e "${b}Copy to $dotfiles_home?${b_} [y/${hi}N${hi_}]"
-                            read -p "  > " copy_home 
-                            if [[ $copy_home == "y" ]] || [[ $copy_home == "Y" ]]; then
+                            if yn_prompt "Copy to $dotfiles_home?"; then
                                 cp "$outfile" "$dotfiles_home/$file"
                             fi
                         fi
                         if [[ ! -z $repo_difference ]]; then
-                            echo -e "${b}Copy to $dotfiles_repo_loc? [y/${hi}N${hi_}]${b_}"
-                            read -p "  > " copy_dotfiles
-                            if [[ $copy_dotfiles == "y" ]] || [[ $copy_dotfiles == "Y" ]]; then
+                            if yn_prompt "Copy to $dotfiles_repo_loc?"; then
                                 cp "$outfile" "$dotfiles_repo_loc/$file"
-                                echo -e "${b}Update dotfiles repository?${b_} [y/${hi}N${hi_}]"
-                                read -p "  > " update_dotfiles
-                                if [[ $update_dotfiles == "y" ]] || [[ $update_dotfiles == "Y" ]]; then
+                                if yn_prompt "Update dotfiles repository?"; then
                                     git -C "$dotfiles_repo_loc" add "$dotfiles_repo_loc/$file"
                                     commit_message="Updating $file on $(hostname) at $(date)."
-                                    echo -e "${b}Custom commit message?${b_} [y/${hi}N${hi_}]"
-                                    read -p "  > " custom_commit
-                                    if [[ $custom_commit == "y" ]] || [[ $custom_commit == "Y" ]]; then
+                                    if yn_prompt "Custom commit message?"; then
                                         echo "Enter commit message: "
                                         read -p "  > " custom_commit_message
                                         commit_message=$custom_commit_message
@@ -332,6 +335,9 @@ for arg in "$@"; do
         -l)
             CHECK_LAST_RUN=1
         ;;
+        -r)
+            REVERSE_PROMPTS=1
+        ;;
         -v)
             VERBOSE=1
         ;;
@@ -340,13 +346,14 @@ done
 
 if [[ $HELP == 1 ]]; then
     echo -e "Usage:\n
-    $(basename "$0") [-h] [-d] [-f] [-i] [-l] [-v]
+    $(basename "$0") [-h] [-d] [-f] [-i] [-l] [-r] [-v]
     \nOptions:\n
     \t-h\tShow this help message
     \t-d\tUse best guess for platform
     \t-f\tForce auto-load of config file (no check for unsafe values)
     \t-i\tIgnore last run check entirely
     \t-l\tDon't check for updates unless it's been \$dotfiles_update_interval seconds since last run
+    \t-r\tReverse prompts (i.e. make enter default-destructive)
     \t-v\tVerbose: print more information"
     exit
 fi
