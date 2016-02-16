@@ -28,7 +28,6 @@
 platform="unknown"
 config_file=$HOME/.dotfiles
 editor=${EDITOR:-vi}
-ARGS=("$@")
 # Command line arguments
 HELP=0
 IGNORE_LAST_RUN=0
@@ -38,7 +37,6 @@ LAZY_PLATFORM_DETECT=0
 VERBOSE=0
 # Colors / formatting
 sep="\033[31m================================================================================\033[0m"
-banner="$sep\ndot-man (•‿•)%67s\n$sep"
 b="\033[1m"
 b_="\033[0m"
 hi="${b}\033[92m"
@@ -49,20 +47,20 @@ f_="\033[0m\033[24m"
 # Load our configuration file
 function load_config {
     if [[ $LOAD_UNSAFE_CONFIG == 1 ]]; then
-        . $config_file
+        . "$config_file"
     fi
-    clean=`grep -vE '(^[# a-zA-Z]$)|(^[a-z]+=[a-z" ]$)' $config_file`
+    clean=$(grep -vE '(^[# a-zA-Z]$)|(^[a-z]+=[a-z" ]$)' "$config_file")
     if [[ ! -z $clean ]] && [[ $LOAD_UNSAFE_CONFIG == 0 ]]; then
         echo -e "Warning: your configuration file may have unsafe lines in it. \n${b}What would you like to do?${b_} [c]ontinue, [o]pen, or [${hi}Q${hi_}]uit:"
         read -p "  > " continue_reading
         if [[ $continue_reading == "c" ]] || [[ $continue_reading == "C" ]]; then
-            . $config_file
+            . "$config_file"
         elif [[ $continue_reading == "o" ]] || [[ $continue_reading == "O" ]]; then
-            $editor $config_file
+            $editor "$config_file"
             echo -e "${b}Continue loading configuration file?${b_} [y/${hi}N${hi_}]"
             read -p "  > " continue_loading
             if [[ $continue_loading == "y" ]] || [[ $continue_loading == "Y" ]]; then
-                . $config_file
+                . "$config_file"
             else
                 echo "Unable to load configuration. Quitting."
                 exit -1
@@ -76,27 +74,26 @@ function load_config {
 
 # See when we last ran dot-man
 function check_last_run {
-    thedate=`date`
+thedate=$(date)
     thetime=""
-    pretty_last_time=""
     if [[ $platform == "Linux" ]]; then
-        thetime=`date -d "$thedate" "+%s"`
+        thetime=$(date -d "$thedate" "+%s")
     elif [[ $platform == "OS X" ]]; then
-        thetime=`date -j -f "%a %b %d %T %Z %Y" "$thedate" "+%s"`
+        thetime=$(date -j -f "%a %b %d %T %Z %Y" "$thedate" "+%s")
     fi
     if [[ -f $dotfiles_last_run_file ]]; then
-        raw=`cat $dotfiles_last_run_file`
+        raw=$(cat "$dotfiles_last_run_file")
         if [[ $platform == "Linux" ]]; then
-            last_time=`date -d "@$raw"`
+            last_time=$(date -d "@$raw")
         elif [[ $platform == "OS X" ]]; then
-            last_time=`date -r $raw`
+            last_time=$(date -r "$raw")
         fi
-        time_diff=`expr $thetime - $raw`
+        time_diff=$thetime-$raw
         if [[ $CHECK_LAST_RUN == 1 ]]; then
             if [[ $time_diff -lt $dotfiles_update_interval ]]; then
                 exit 0
             else
-                echo "$thetime" > $dotfiles_last_run_file
+                echo "$thetime" > "$dotfiles_last_run_file"
             fi
         else
             echo -e "Last run: $last_time.\n${b}Continue?${b_} [y/${hi}N${hi_}]"
@@ -105,19 +102,19 @@ function check_last_run {
                 echo "Quitting."
                 exit 0
             else
-                echo "$thetime" > $dotfiles_last_run_file
+                echo "$thetime" > "$dotfiles_last_run_file"
             fi
         fi
     else
-        touch $dotfiles_last_run_file
-        echo "$thetime" > $dotfiles_last_run_file
+        touch "$dotfiles_last_run_file"
+        echo "$thetime" > "$dotfiles_last_run_file"
     fi
 
 }
 
 # check to make sure we have the right platform
 function check_platform {
-    unamestr=`uname`
+    unamestr=$(uname)
     
     if [[ $unamestr == "Linux" ]]; then
         platform="Linux"
@@ -162,8 +159,8 @@ function check_dotfiles_exist {
             echo -e "${f}$dotfiles_repo_loc${f_} is not a directory.\nDelete and create directory? [y/${hi}N${hi_}]"
             read -p " > " delete_file
             if [[ $delete_file == "y" ]] || [[ $delete_file == "Y" ]]; then
-                rm -rf $dotfiles_repo_loc
-                mkdir $dotfiles_repo_loc
+                rm -rf "$dotfiles_repo_loc"
+                mkdir "$dotfiles_repo_loc"
             else
                 echo -e "Can't continue without a valid \$dotfiles_repo_loc."
                 exit -1
@@ -172,7 +169,7 @@ function check_dotfiles_exist {
             echo -e "No folder named $dotfiles_repo_loc.\nCreate directory ${f}$dotfiles_repo_loc${f_}? [y/${hi}N${hi_}]"
             read -p " > " create_directory
             if [[ $create_directory == "y" ]] || [[ $create_directory == "Y" ]]; then
-                mkdir $dotfiles_repo_loc
+                mkdir "$dotfiles_repo_loc"
             else
                 echo -e "Can't continue without a valid \$dotfiles_repo_loc."
                 exit -1
@@ -180,28 +177,28 @@ function check_dotfiles_exist {
         fi
     fi
 
-    if [[ ! -z $(git -C $dotfiles_repo_loc status 2>&1 | fgrep 'Not a git repository') ]]; then
+    if (git -C "$dotfiles_repo_loc" status 2>&1 | fgrep -q 'Not a git repository'); then
         echo -e "Git repository not found at this location.\n${b}Initialize one or clone?${b_}\n[i]nitialize, [c]lone, or [${hi}Q${hi_}]uit: "
         read -p "  > " initialize_git
 
         if [[ $initialize_git == "i" ]] || [[ $initialize_git == "I" ]]; then
-            git -C $dotfiles_repo_loc init
-            git -C $dotfiles_repo_loc checkout -b $dotfiles_branch
+            git -C "$dotfiles_repo_loc" init
+            git -C "$dotfiles_repo_loc" checkout -b "$dotfiles_branch"
         elif [[ $initialize_git == "c" ]] || [[ $initialize_git == "C" ]]; then
-            is_dirty=`ls $dotfiles_repo_loc`
+            is_dirty=$(ls "$dotfiles_repo_loc")
             if [[ ! -z $is_dirty ]]; then
                 echo -e "Existing files in ${f}$dotfiles_repo_loc${f_}:\n$is_dirty\n\n${b}Delete files?${b_} [y/${hi}N${hi_}]" 
                 read -p "  > " delete_existing
                 if [[ $delete_existing == "y" ]] || [[ $delete_existing == "Y" ]]; then
-                    rm -rf $dotfiles_repo_loc
-                    mkdir $dotfiles_repo_loc
+                    rm -rf "$dotfiles_repo_loc"
+                    mkdir "$dotfiles_repo_loc"
                 else
                     echo -e "Cannot clone repository without deleting files in ${f}$dotfiles_repo_loc${f_}. Clean up this directory and try again."
                     exit -1
                 fi
             fi
-            git clone $dotfiles_repo $dotfiles_repo_loc
-            git -C $dotfiles_repo_loc checkout -b $dotfiles_branch
+            git clone "$dotfiles_repo" "$dotfiles_repo_loc"
+            git -C "$dotfiles_repo_loc" checkout -b "$dotfiles_branch"
         else
             echo "Quitting."
             exit -1
@@ -214,15 +211,15 @@ function check_dotfiles_exist {
 # update dotfiles repository from remote
 function update_dotfiles {
     echo -e "Checking status of repository...\n"
-    current_branch=`git -C $dotfiles_repo_loc status | grep "On branch " | sed "s/On branch //"`
+    current_branch=$(git -C "$dotfiles_repo_loc" status | grep "On branch " | sed "s/On branch //")
     if [[ $current_branch != $dotfiles_branch ]]; then
-        git -C $dotfiles_repo_loc checkout $dotfiles_branch
-        git -C $dotfiles_repo_loc branch -u "origin/$dotfiles_branch"
+        git -C "$dotfiles_repo_loc" checkout "$dotfiles_branch"
+        git -C "$dotfiles_repo_loc" branch -u "origin/$dotfiles_branch"
     fi
-    git -C $dotfiles_repo_loc remote update
-    status=$(git -C $dotfiles_repo_loc status)
-    up_to_date=`grep "Your branch is up-to-date" <<< $status` 
-    up_to_date2=`grep -E "nothing (added )*to commit" <<< $status` # Dirty branch is thrown away here. Maybe we want to update?
+    git -C "$dotfiles_repo_loc" remote update
+    status=$(git -C "$dotfiles_repo_loc" status)
+    up_to_date=$(grep "Your branch is up-to-date" <<< "$status")
+    up_to_date2=$(grep -E "nothing (added )*to commit" <<< "$status") # Dirty branch is thrown away here. Maybe we want to update?
     
     if [[ $up_to_date ]] || [[ $up_to_date2 ]]; then
         echo "Local repository is up-to-date with remote repository."
@@ -230,7 +227,7 @@ function update_dotfiles {
         echo -e "The dotfiles repository has been updated, or has unstaged changes.\n${b}Pull latest version?${b_} [y/${hi}N${hi_}]"
         read -p "  > " pull_latest
         if [[ $pull_latest == "y" ]] || [[ $pull_latest == "Y" ]]; then
-            git -C $dotfiles_repo_loc pull -u origin $dotfiles_branch
+            git -C "$dotfiles_repo_loc" pull -u origin "$dotfiles_branch"
         else
             echo "Not updating repository from remote."
         fi
@@ -240,57 +237,57 @@ function update_dotfiles {
 # diff directories and copy any updates
 function compare_dotfiles {
     echo -e "Comparing files from ${f}$dotfiles_repo_loc${f_} with files in ${f}$dotfiles_home${f_}.\n"
-    for file in `git -C $dotfiles_repo_loc ls-files`; do
+    for file in $(git -C "$dotfiles_repo_loc" ls-files); do
         if [[ $file != "$dotfiles_repo_loc/." ]] && [[ $file != "$dotfiles_repo_loc/.." ]] && [[ $file != ".git" ]] && [[ $file != ".gitignore" ]]; then
             if [[ $dotfiles_repo_loc/$file -nt $dotfiles_home/$file ]]; then
                 if [[ ! -f $dotfiles_home/$file ]]; then
                     echo -e "File ${f}$file${f_} doesn't exist in ${f}$dotfiles_home${f_}.\n${b}Copy from repo?${b_} [y/${hi}N${hi_}]"
                     read -p "  > " copy_straight
                     if [[ $copy_straight == "y" ]] || [[ $copy_straight == "Y" ]]; then
-                        cp $dotfiles_repo_loc/$file $dotfiles_home/$file
+                        cp "$dotfiles_repo_loc/$file" "$dotfiles_home/$file"
                     fi
                 else 
-                    difference=`diff $dotfiles_repo_loc/$file $dotfiles_home/$file`
+                    difference=$(diff "$dotfiles_repo_loc/$file" "$dotfiles_home/$file")
                     if [[ ! -z $difference ]]; then
                         echo -e "Dotfiles repository has newer version of ${f}$file${f_}.\n${b}Open sdiff?${b_} [y/${hi}N${hi_}]"
                         read -p "  > " open_sdiff
                         if [[ $open_sdiff == "y" ]] || [[ $open_sdiff == "Y" ]]; then
-                            outfile=`mktemp TEMP_DOTFILE.XXXXXXXXXX`
-                            sdiff -o $outfile $dotfiles_repo_loc/$file $dotfiles_home/$file
-                            cp $outfile $dotfiles_home/$file
-                            rm $outfile 
+                            outfile=$(mktemp TEMP_DOTFILE.XXXXXXXXXX)
+                            sdiff -o "$outfile" "$dotfiles_repo_loc/$file" "$dotfiles_home/$file"
+                            cp "$outfile" "$dotfiles_home/$file"
+                            rm "$outfile"
                         fi
                     elif [[ $VERBOSE == 1  ]]; then
-                        echo "${f}$file${f_} is up-to-date!"
+                        echo -e "${f}$file${f_} is up-to-date!"
                     fi
                 fi
             elif [[ $dotfiles_home/$file -nt $dotfiles_repo_loc/$file ]]; then
-                difference=`diff $dotfiles_home/$file $dotfiles_repo_loc/$file`
+                difference=$(diff "$dotfiles_home/$file" "$dotfiles_repo_loc/$file")
                 if [[ ! -z $difference ]]; then
                     echo -e "$sep\nDifferences found in ${f}$dotfiles_home/$file${f_}.\n${b}Open sdiff?${b_} [y/${hi}N${hi_}]"
                     read -p "  > " open_sdiff
                     if [[ $open_sdiff == "y" ]] || [[ $open_sdiff == "Y" ]]; then
-                        outfile=`mktemp TEMP_DOTFILE.XXXXXXXXXX`
-                        sdiff -o $outfile $dotfiles_home/$file $dotfiles_repo_loc/$file
-                        home_difference=`diff $outfile $dotfiles_home/$file`
-                        repo_difference=`diff $outfile $dotfiles_repo_loc/$file`
+                        outfile=$(mktemp TEMP_DOTFILE.XXXXXXXXXX)
+                        sdiff -o "$outfile" "$dotfiles_home/$file" "$dotfiles_repo_loc/$file"
+                        home_difference=$(diff "$outfile" "$dotfiles_home/$file")
+                        repo_difference=$(diff "$outfile" "$dotfiles_repo_loc/$file")
                         if [[ ! -z $home_difference ]]; then
                             echo -e "${b}Copy to $dotfiles_home?${b_} [y/${hi}N${hi_}]"
                             read -p "  > " copy_home 
                             if [[ $copy_home == "y" ]] || [[ $copy_home == "Y" ]]; then
-                                cp $outfile $dotfiles_home/$file
+                                cp "$outfile" "$dotfiles_home/$file"
                             fi
                         fi
                         if [[ ! -z $repo_difference ]]; then
                             echo -e "${b}Copy to $dotfiles_repo_loc? [y/${hi}N${hi_}]${b_}"
                             read -p "  > " copy_dotfiles
                             if [[ $copy_dotfiles == "y" ]] || [[ $copy_dotfiles == "Y" ]]; then
-                                cp $outfile $dotfiles_repo_loc/$file
+                                cp "$outfile" "$dotfiles_repo_loc/$file"
                                 echo -e "${b}Update dotfiles repository?${b_} [y/${hi}N${hi_}]"
                                 read -p "  > " update_dotfiles
                                 if [[ $update_dotfiles == "y" ]] || [[ $update_dotfiles == "Y" ]]; then
-                                    git -C $dotfiles_repo_loc add $dotfiles_repo_loc/$file
-                                    commit_message="Updating $file on `hostname` at `date`."
+                                    git -C "$dotfiles_repo_loc" add "$dotfiles_repo_loc/$file"
+                                    commit_message="Updating $file on $(hostname) at $(date)."
                                     echo -e "${b}Custom commit message?${b_} [y/${hi}N${hi_}]"
                                     read -p "  > " custom_commit
                                     if [[ $custom_commit == "y" ]] || [[ $custom_commit == "Y" ]]; then
@@ -298,18 +295,18 @@ function compare_dotfiles {
                                         read -p "  > " custom_commit_message
                                         commit_message=$custom_commit_message
                                     fi
-                                    git -C $dotfiles_repo_loc commit -m "$commit_message" -q
-                                    git -C $dotfiles_repo_loc push -u $dotfiles_repo
+                                    git -C "$dotfiles_repo_loc" commit -m "$commit_message" -q
+                                    git -C "$dotfiles_repo_loc" push -u "$dotfiles_repo"
                                     echo "Pushed updates to $dotfiles_repo!"
                                 fi
                             fi
                         fi
-                        rm $outfile 
+                        rm "$outfile"
                     else
-                        echo "Leaving differences in ${f}$file${f_} unchanged."
+                        echo -e "Leaving differences in ${f}$file${f_} unchanged."
                     fi
                 elif [[ $VERBOSE == 1 ]]; then
-                    echo "${f}$file${f_} is up-to-date!"
+                    echo -e "${f}$file${f_} is up-to-date!"
                 fi
             fi
         fi
@@ -356,7 +353,10 @@ fi
 
 load_config
 check_platform
-printf "$banner\n" "$USER@$(hostname):$dotfiles_branch"
+echo -e $sep
+printf "dot-man (•‿•)%67s\n" "$USER@$(hostname):$dotfiles_branch"
+echo -e $sep
+
 if [[ $IGNORE_LAST_RUN == 0 ]]; then
     check_last_run
 fi
