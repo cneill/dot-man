@@ -255,10 +255,15 @@ function update_dotfiles {
 function compare_dotfiles {
     echo -e "Comparing files from ${f}$dotfiles_repo_loc${f_} with files in ${f}$dotfiles_home${f_}.\n"
     for file in $(git -C "$dotfiles_repo_loc" ls-files); do
+        localFileDir=$(dirname "$dotfiles_home/$file")
+        repoFileDir=$(dirname "$dotfiles_repo_loc/$file")
         if [[ $file != "$dotfiles_repo_loc/." ]] && [[ $file != "$dotfiles_repo_loc/.." ]] && [[ $file != ".git" ]] && [[ $file != ".gitignore" ]]; then
             if [[ $dotfiles_repo_loc/$file -nt $dotfiles_home/$file ]]; then
                 if [[ ! -f $dotfiles_home/$file ]]; then
                     if yn_prompt "File ${f}$file${f_} doesn't exist in ${f}$dotfiles_home${f_}. Copy from repo?"; then
+                        if [[ ! -d "$localFileDir" ]]; then
+                            mkdir -p "$localFileDir"
+                        fi
                         cp "$dotfiles_repo_loc/$file" "$dotfiles_home/$file"
                     fi
                 else 
@@ -267,6 +272,9 @@ function compare_dotfiles {
                         if yn_prompt "Dotfiles repository has newer version of ${f}$file${f_}. Open sdiff?"; then
                             outfile=$(mktemp TEMP_DOTFILE.XXXXXXXXXX)
                             sdiff -o "$outfile" "$dotfiles_repo_loc/$file" "$dotfiles_home/$file"
+                            if [[ ! -d "$localFileDir" ]]; then
+                                mkdir -p "$localFileDir"
+                            fi
                             cp "$outfile" "$dotfiles_home/$file"
                             rm "$outfile"
                         fi
@@ -284,11 +292,17 @@ function compare_dotfiles {
                         repo_difference=$(diff "$outfile" "$dotfiles_repo_loc/$file")
                         if [[ ! -z $home_difference ]]; then
                             if yn_prompt "Copy to $dotfiles_home?"; then
+                                if [[ ! -d "$localFileDir" ]]; then
+                                    mkdir -p "$localFileDir"
+                                fi
                                 cp "$outfile" "$dotfiles_home/$file"
                             fi
                         fi
                         if [[ ! -z $repo_difference ]]; then
                             if yn_prompt "Copy to $dotfiles_repo_loc?"; then
+                                if [[ ! -d "$repoFileDir" ]]; then
+                                    mkdir -p "$repoFileDir"
+                                fi
                                 cp "$outfile" "$dotfiles_repo_loc/$file"
                                 if yn_prompt "Update dotfiles repository?"; then
                                     git -C "$dotfiles_repo_loc" add "$dotfiles_repo_loc/$file"
