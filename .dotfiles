@@ -17,3 +17,6 @@ dotfiles_last_run_file="$HOME/.dotfiles-last-run"
 
 # Update interval in seconds (default = 24 hours)
 dotfiles_update_interval=86400
+
+# Width of sdiff output
+sdiff_width=256

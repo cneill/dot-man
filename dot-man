@@ -271,7 +271,7 @@ function compare_dotfiles {
                     if [[ ! -z $difference ]]; then
                         if yn_prompt "Dotfiles repository has newer version of ${f}$file${f_}. Open sdiff?"; then
                             outfile=$(mktemp TEMP_DOTFILE.XXXXXXXXXX)
-                            sdiff -o "$outfile" "$dotfiles_repo_loc/$file" "$dotfiles_home/$file"
+                            sdiff -w "${sdiff_width}" -o "$outfile" "$dotfiles_repo_loc/$file" "$dotfiles_home/$file"
                             if [[ ! -d "$localFileDir" ]]; then
                                 mkdir -p "$localFileDir"
                             fi
@@ -287,7 +287,7 @@ function compare_dotfiles {
                 if [[ ! -z $difference ]]; then
                     if yn_prompt "$sep\nDifferences found in ${f}$dotfiles_home/$file${f_}. Open sdiff?"; then
                         outfile=$(mktemp TEMP_DOTFILE.XXXXXXXXXX)
-                        sdiff -o "$outfile" "$dotfiles_home/$file" "$dotfiles_repo_loc/$file"
+                        sdiff -w "${sdiff_width}" -o "$outfile" "$dotfiles_home/$file" "$dotfiles_repo_loc/$file"
                         home_difference=$(diff "$outfile" "$dotfiles_home/$file")
                         repo_difference=$(diff "$outfile" "$dotfiles_repo_loc/$file")
                         if [[ ! -z $home_difference ]]; then
