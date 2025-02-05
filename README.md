@@ -102,5 +102,5 @@ want, you'll need to change this in `.dotfiles`, as well as install commands, et
 
 ## Copyright
 
-Copyright (c) 2015-2019 Charles Neill. All rights reserved. dot-man is
+Copyright (c) 2015-2025 Charles Neill. All rights reserved. dot-man is
 distributed under an open-source BSD licence.
