@@ -26,7 +26,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ################################################################################
 platform="unknown"
-config_file=$HOME/.dotfiles
+config_file=$HOME/.config/dot-man/config
 editor=${EDITOR:-vi}
 # Command line arguments
 HELP=0
@@ -80,7 +80,7 @@ function load_config {
         . "$config_file"
     fi
     clean=$(grep -vE '(^[# a-zA-Z]$)|(^[a-z]+=[a-z" ]$)' "$config_file")
-    if [[ ! -z $clean ]] && [[ $LOAD_UNSAFE_CONFIG == 0 ]]; then
+    if [[ -n $clean ]] && [[ $LOAD_UNSAFE_CONFIG == 0 ]]; then
         echo -e "Warning: your configuration file may have unsafe lines in it. \n${b}What would you like to do?${b_} [c]ontinue, [o]pen, or [${hi}Q${hi_}]uit:"
         read -p "  > " continue_reading
         if [[ $continue_reading == "c" ]] || [[ $continue_reading == "C" ]]; then
@@ -91,7 +91,7 @@ function load_config {
                 . "$config_file"
             else
                 echo "Unable to load configuration. Quitting."
-                exit -1
+                exit 1
             fi
         else
             echo "Quitting."
@@ -163,12 +163,12 @@ function check_platform {
         if [[ $LAZY_PLATFORM_DETECT == 0 ]]; then
             if ! yn_prompt "It looks like your platform is $platform. Is this correct?"; then
                 echo "Unknown platform. Quitting."
-                exit -1
+                exit 1
             fi
         fi
     else
         echo "Unknown platform. Quitting."
-        exit -1
+        exit 1
     fi
 
 }
@@ -185,14 +185,14 @@ function check_dotfiles_exist {
                 mkdir "$dotfiles_repo_loc"
             else
                 echo -e "Can't continue without a valid \$dotfiles_repo_loc."
-                exit -1
+                exit 1
             fi
         else
             if yn_prompt "No folder named $dotfiles_repo_loc. Create directory ${f}$dotfiles_repo_loc${f_}?"; then
                 mkdir "$dotfiles_repo_loc"
             else
                 echo -e "Can't continue without a valid \$dotfiles_repo_loc."
-                exit -1
+                exit 1
             fi
         fi
     fi
@@ -206,21 +206,21 @@ function check_dotfiles_exist {
             git -C "$dotfiles_repo_loc" checkout -b "$dotfiles_branch"
         elif [[ $initialize_git == "c" ]] || [[ $initialize_git == "C" ]]; then
             is_dirty=$(ls "$dotfiles_repo_loc")
-            if [[ ! -z $is_dirty ]]; then
+            if [[ -n $is_dirty ]]; then
                 echo -e "Existing files in ${f}$dotfiles_repo_loc${f_}:\n$is_dirty\n"
                 if yn_prompt "Delete files?"; then
                     rm -rf "$dotfiles_repo_loc"
                     mkdir "$dotfiles_repo_loc"
                 else
                     echo -e "Cannot clone repository without clean folder: ${f}$dotfiles_repo_loc${f_}. Clean up this directory and try again."
-                    exit -1
+                    exit 1
                 fi
             fi
             git clone "$dotfiles_repo" "$dotfiles_repo_loc"
             git -C "$dotfiles_repo_loc" checkout -b "$dotfiles_branch"
         else
             echo "Quitting."
-            exit -1
+            exit 1
         fi
     else
         echo "Found dotfiles repository."
@@ -268,7 +268,7 @@ function compare_dotfiles {
                     fi
                 else 
                     difference=$(diff "$dotfiles_repo_loc/$file" "$dotfiles_home/$file")
-                    if [[ ! -z $difference ]]; then
+                    if [[ -n $difference ]]; then
                         if yn_prompt "Dotfiles repository has newer version of ${f}$file${f_}. Open sdiff?"; then
                             outfile=$(mktemp TEMP_DOTFILE.XXXXXXXXXX)
                             sdiff -w "${sdiff_width}" -o "$outfile" "$dotfiles_repo_loc/$file" "$dotfiles_home/$file"
@@ -284,13 +284,13 @@ function compare_dotfiles {
                 fi
             elif [[ $dotfiles_home/$file -nt $dotfiles_repo_loc/$file ]]; then
                 difference=$(diff "$dotfiles_home/$file" "$dotfiles_repo_loc/$file")
-                if [[ ! -z $difference ]]; then
+                if [[ -n $difference ]]; then
                     if yn_prompt "$sep\nDifferences found in ${f}$dotfiles_home/$file${f_}. Open sdiff?"; then
                         outfile=$(mktemp TEMP_DOTFILE.XXXXXXXXXX)
                         sdiff -w "${sdiff_width}" -o "$outfile" "$dotfiles_home/$file" "$dotfiles_repo_loc/$file"
                         home_difference=$(diff "$outfile" "$dotfiles_home/$file")
                         repo_difference=$(diff "$outfile" "$dotfiles_repo_loc/$file")
-                        if [[ ! -z $home_difference ]]; then
+                        if [[ -n $home_difference ]]; then
                             if yn_prompt "Copy to $dotfiles_home?"; then
                                 if [[ ! -d "$localFileDir" ]]; then
                                     mkdir -p "$localFileDir"
@@ -298,7 +298,7 @@ function compare_dotfiles {
                                 cp "$outfile" "$dotfiles_home/$file"
                             fi
                         fi
-                        if [[ ! -z $repo_difference ]]; then
+                        if [[ -n $repo_difference ]]; then
                             if yn_prompt "Copy to $dotfiles_repo_loc?"; then
                                 if [[ ! -d "$repoFileDir" ]]; then
                                     mkdir -p "$repoFileDir"
@@ -374,17 +374,17 @@ fi
 
 load_config
 check_platform
-echo -e $sep
+echo -e "$sep"
 printf "dot-man (•‿•)%67s\n" "$USER@$(hostname):$dotfiles_branch"
-echo -e $sep
+echo -e "$sep"
 
 if [[ $IGNORE_LAST_RUN == 0 ]]; then
     check_last_run
 fi
 
 check_dotfiles_exist
-echo -e $sep
+echo -e "$sep"
 update_dotfiles
-echo -e $sep
+echo -e "$sep"
 compare_dotfiles
-echo -e $sep
+echo -e "$sep"
